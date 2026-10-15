@@ -1,0 +1,31 @@
+[project]
+name = "aep-verify"
+version = "0.1.0"
+description = "Independent verifier for the A-Comm Evidence Protocol (AEP) v1.0.3-rc.2 hash chain, seal and dispute-bundle export gate, checked against the published conformance vectors."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.12"
+dependencies = ["cryptography>=42"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6", "rfc8785>=0.1.4"]
+
+[project.scripts]
+aep-verify = "aep_verify.__main__:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["aep_verify*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "W"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
