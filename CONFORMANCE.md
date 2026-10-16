@@ -61,10 +61,10 @@ is omitted") gives 8 and `true`. Two readings, two answers, on the published
 vector. This verifier follows Appendix B and emits a warning naming the other
 reading.
 
-Status: not filed. Issue #70 item 3 notes the §2.2/Appendix B wording gap as
+Status: filed 2026-10-16 as upstream #96. Issue #70 item 3 notes the §2.2/Appendix B wording gap as
 editorial; #26 and #77 argue about when delegation may be present. None
 observes that vector (b) itself breaks the MUST or that Appendix B marks it
-incomplete. Draft in `notes/issues-draft.md`.
+incomplete. See `notes/issues-filed.md`.
 
 ### 2. §2.7 required fields do not match Appendix B or the vectors
 
@@ -78,8 +78,8 @@ enforces §2.7 as written rejects the conformance vector. This verifier checks
 `captured_at` monotonicity where the field exists and warns where it is
 absent.
 
-Status: not filed as such. #3 covers the integrity of the chain-level fields,
-not their names or presence. Draft in `notes/issues-draft.md`.
+Status: filed 2026-10-16 as upstream #97. #3 covers the integrity of the chain-level fields,
+not their names or presence. See `notes/issues-filed.md`.
 
 ### 3. `chain_complete` tests equality, but the counts are called minimums and fulfillment arrives in multiples
 
@@ -89,7 +89,7 @@ are minimums". §2.5 expects fulfillment artifacts to arrive as multiple events
 delivered fulfillment artifact has 9 artifacts and is `chain_complete: false`
 forever under `==`. This verifier implements `==` as written.
 
-Status: not found in the issue list. Draft in `notes/issues-draft.md`.
+Status: filed 2026-10-16 as upstream #98.
 
 ### 4. §4.1 says "code point", RFC 8785 and vector (h) say UTF-16 code unit
 
@@ -177,7 +177,7 @@ than 128 levels has no canonical form here (a hostile input would otherwise
 exhaust the stack), and every untrusted value quoted in a message is bounded,
 so a 5 MB field cannot be echoed five times into a 25 MB result.
 
-## Smaller observations (recorded, not filed)
+## Smaller observations (filed together as upstream #99)
 
 - §5 envelope status has no value for "a rule exists but this verifier does
   not implement it". `unverifiable` with reason `no_rule` would be a false
