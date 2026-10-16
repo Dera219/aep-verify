@@ -15,6 +15,10 @@ Integers beyond 2**53 - 1 in magnitude are rejected rather than serialized:
 RFC 8785 defines number serialization in terms of IEEE-754 doubles, so a
 larger integer has no exact canonical form and two implementations could
 silently disagree.
+
+Nesting deeper than MAX_DEPTH is also rejected. That limit is this package's,
+not RFC 8785's: no AEP hash input comes near it, and without it a hostile
+input exhausts the interpreter's stack instead of failing verification.
 """
 
 from __future__ import annotations
@@ -25,6 +29,7 @@ import unicodedata
 from typing import Any
 
 MAX_SAFE_INTEGER = 2**53 - 1
+MAX_DEPTH = 128
 
 _TWO_CHAR_ESCAPES = {
     '"': '\\"',
@@ -68,7 +73,9 @@ def _utf16_sort_key(name: str) -> bytes:
         raise CanonicalizationError(f"member name contains a lone surrogate: {name!r}") from exc
 
 
-def _serialize(value: Any, out: list[str], path: str) -> None:
+def _serialize(value: Any, out: list[str], path: str, depth: int = 0) -> None:
+    if depth > MAX_DEPTH:
+        raise CanonicalizationError(f"nesting deeper than {MAX_DEPTH} levels at {path[:80]}...")
     if value is None:
         out.append("null")
     elif value is True:
@@ -92,7 +99,7 @@ def _serialize(value: Any, out: list[str], path: str) -> None:
         for i, item in enumerate(value):
             if i:
                 out.append(",")
-            _serialize(item, out, f"{path}[{i}]")
+            _serialize(item, out, f"{path}[{i}]", depth + 1)
         out.append("]")
     elif isinstance(value, dict):
         members: list[tuple[str, Any]] = []
@@ -114,7 +121,7 @@ def _serialize(value: Any, out: list[str], path: str) -> None:
                 out.append(",")
             out.append(_escape_string(key))
             out.append(":")
-            _serialize(item, out, f"{path}.{key}")
+            _serialize(item, out, f"{path}.{key}", depth + 1)
         out.append("}")
     else:
         raise CanonicalizationError(f"unsupported value type at {path}: {type(value).__name__}")
@@ -160,3 +167,5 @@ def parse_json(text: str | bytes) -> Any:
         )
     except json.JSONDecodeError as exc:
         raise CanonicalizationError(f"invalid JSON: {exc}") from exc
+    except RecursionError as exc:
+        raise CanonicalizationError("JSON text is nested too deeply to parse") from exc

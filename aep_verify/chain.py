@@ -3,8 +3,9 @@
 Implemented, key-free parts of the draft: the §4.1 hash input and canonical
 form, §4.2 genesis/link rules, §4.3 Ed25519 server signatures, §2.5 seal,
 §3.8 permitted actors, §3.9.2 ordering, §3.5 MUST-1 cart total integrity,
-§3.6 MUST-1 cart/authorization amount match, §3.9.11 rule 4 (AP2 checkout
-hash binding), §2.2 / Appendix B completeness, and the §5 result schema.
+§3.6 MUST-1 cart/authorization amount match, the §3.7 delivery-address
+match, §3.9.11 rule 4 (AP2 checkout hash binding), §2.2 / Appendix B
+completeness, and the §5 result schema.
 
 Not implemented: protocol-envelope verification (§3.9.11 rules 1-3, 5-12).
 Those rules need live or witnessed third-party keys and reference envelopes,
@@ -21,14 +22,14 @@ import hmac
 import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, TypeGuard
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
 from .canonical import CanonicalizationError, canonicalize
 
-VERIFIER_ID = "aep-verify/0.1.0"
+VERIFIER_ID = "aep-verify/0.2.0"
 SPEC_VERSION = "aep-1.0.3-rc.2"
 SUPPORTED_SPEC_VERSIONS: frozenset[str] = frozenset({SPEC_VERSION})
 
@@ -135,8 +136,36 @@ class ChainFormatError(ValueError):
     """The input is not an artifact chain at all (as opposed to a chain that fails)."""
 
 
-def _is_int(value: Any) -> bool:
+def _is_int(value: Any) -> TypeGuard[int]:
     return isinstance(value, int) and not isinstance(value, bool)
+
+
+def show(value: Any, limit: int = 96) -> str:
+    """repr() for messages about untrusted input: bounded in length, never recursive.
+
+    Identical to repr() for the short values a conformant chain carries; a 5 MB string or a
+    10,000-deep array in a hostile bundle becomes a short placeholder instead of being echoed
+    into every error that mentions it.
+    """
+    if isinstance(value, list | tuple):
+        if len(value) <= 10 and all(v is None or isinstance(v, str | int | bool) for v in value):
+            text = "[" + ", ".join(show(v, 40) for v in value) + "]"
+        else:
+            text = f"<array of {len(value)} items>"
+    elif isinstance(value, dict):
+        text = f"<object with {len(value)} members>"
+    else:
+        text = repr(value)
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+def _known(value: Any, allowed: Any) -> TypeGuard[str]:
+    """Membership for untrusted JSON: a dict or list where a name belongs is simply unknown.
+
+    `{} in frozenset(...)` raises TypeError (unhashable), and a verifier must reject hostile
+    input, never crash on it.
+    """
+    return isinstance(value, str) and value in allowed
 
 
 def _parse_timestamp(value: Any) -> datetime | None:
@@ -178,7 +207,7 @@ def compute_hash(hash_input: dict[str, Any]) -> str:
 def digest_bytes(hash_str: str) -> bytes:
     """The raw 32 digest bytes behind a 'sha256:<hex>' string (§4.1 signature input encoding)."""
     if not HASH_RE.match(hash_str):
-        raise ChainFormatError(f"not a sha256:<64 lowercase hex> string: {hash_str!r}")
+        raise ChainFormatError(f"not a sha256:<64 lowercase hex> string: {show(hash_str)}")
     return bytes.fromhex(hash_str[len("sha256:") :])
 
 
@@ -213,7 +242,7 @@ def expected_artifact_count(transaction_type: str, protocol: str = "GENERIC") ->
     try:
         without, with_delegation = _EXPECTED_COUNTS[transaction_type]
     except KeyError:
-        raise ChainFormatError(f"unknown transaction_type {transaction_type!r}") from None
+        raise ChainFormatError(f"unknown transaction_type {show(transaction_type)}") from None
     return with_delegation if protocol != "GENERIC" else without
 
 
@@ -222,7 +251,7 @@ def expected_count_by_presence(transaction_type: str, delegation_present: bool) 
     try:
         without, with_delegation = _EXPECTED_COUNTS[transaction_type]
     except KeyError:
-        raise ChainFormatError(f"unknown transaction_type {transaction_type!r}") from None
+        raise ChainFormatError(f"unknown transaction_type {show(transaction_type)}") from None
     return with_delegation if delegation_present else without
 
 
@@ -375,19 +404,23 @@ def _resolve_spec_version(
 ) -> str | None:
     versions: set[str] = set()
     if supplied is not None:
-        versions.add(str(supplied))
+        versions.add(supplied if isinstance(supplied, str) else show(supplied))
     for artifact in artifacts:
         if "spec_version" in artifact.metadata:
-            versions.add(str(artifact.metadata["spec_version"]))
+            value = artifact.metadata["spec_version"]
+            versions.add(value if isinstance(value, str) else show(value))
         if "spec_version" in artifact.raw:
-            versions.add(str(artifact.raw["spec_version"]))
+            value = artifact.raw["spec_version"]
+            versions.add(value if isinstance(value, str) else show(value))
     if not versions:
         errors.append(
             "spec_version missing: not on any artifact and not supplied at bundle level (§2.7)"
         )
         return None
     if len(versions) > 1:
-        errors.append(f"conflicting spec_version values {sorted(versions)} across the chain (§2.7)")
+        errors.append(
+            f"conflicting spec_version values {show(sorted(versions))} across the chain (§2.7)"
+        )
         return None
     return versions.pop()
 
@@ -404,7 +437,7 @@ def _check_artifact(
 
     if artifact.sequence_number != position:
         errors.append(
-            f"sequence_number {artifact.sequence_number!r} at position {position} "
+            f"sequence_number {show(artifact.sequence_number)} at position {position} "
             "(§4.2: 1 for genesis, then consecutive)"
         )
 
@@ -418,14 +451,21 @@ def _check_artifact(
     artifact_type = hash_input.get("artifact_type")
     actor_type = hash_input.get("actor_type")
     channel = hash_input.get("interaction_channel")
-    if artifact_type not in ARTIFACT_TYPES:
-        errors.append(f"unknown artifact_type {artifact_type!r} (Appendix B)")
-    if actor_type not in ACTOR_TYPES:
-        errors.append(f"unknown actor_type {actor_type!r} (§2.4 / Appendix B)")
-    elif artifact_type in PERMITTED_ACTORS and actor_type not in PERMITTED_ACTORS[artifact_type]:
-        errors.append(f"actor_type {actor_type!r} is not permitted for {artifact_type!r} (§3.8)")
-    if channel is not None and channel not in INTERACTION_CHANNELS:
-        errors.append(f"interaction_channel {channel!r} is not voice|text_chat|voice_and_text|null")
+    if not _known(artifact_type, ARTIFACT_TYPES):
+        errors.append(f"unknown artifact_type {show(artifact_type)} (Appendix B)")
+    if not _known(actor_type, ACTOR_TYPES):
+        errors.append(f"unknown actor_type {show(actor_type)} (§2.4 / Appendix B)")
+    elif (
+        _known(artifact_type, PERMITTED_ACTORS)
+        and actor_type not in PERMITTED_ACTORS[artifact_type]
+    ):
+        errors.append(
+            f"actor_type {show(actor_type)} is not permitted for {show(artifact_type)} (§3.8)"
+        )
+    if channel is not None and not _known(channel, INTERACTION_CHANNELS):
+        errors.append(
+            f"interaction_channel {show(channel)} is not voice|text_chat|voice_and_text|null"
+        )
     if not isinstance(hash_input.get("actor_id"), str) or not hash_input.get("actor_id"):
         errors.append("actor_id must be a non-empty string (Appendix B)")
     if not isinstance(hash_input.get("payload"), dict):
@@ -435,7 +475,8 @@ def _check_artifact(
         errors.append("metadata must be an object or null (Appendix B)")
     if _parse_timestamp(hash_input.get("timestamp")) is None:
         errors.append(
-            f"timestamp {hash_input.get('timestamp')!r} is not RFC 3339 UTC 'Z' whole-second (§4.1)"
+            f"timestamp {show(hash_input.get('timestamp'))} is not RFC 3339 UTC 'Z' "
+            "whole-second (§4.1)"
         )
 
     # §4.2 genesis / link.
@@ -472,6 +513,23 @@ def _check_artifact(
     if stored_ok and computed is not None and not hash_matches:
         errors.append("recomputed hash does not equal stored current_hash (§5: content modified)")
 
+    # Unsigned copies carried beside the hash input (the vector (b) record shape). A reader or
+    # tool that trusts them would see content the signature does not cover, so they must agree.
+    copy_text = artifact.raw.get("canonical_json")
+    if copy_text is not None and not missing:
+        try:
+            same = isinstance(copy_text, str) and copy_text == canonicalize(hash_input).decode()
+        except CanonicalizationError:
+            same = True  # already reported above as a canonicalization failure
+        if not same:
+            errors.append("canonical_json is not the canonical form of hash_input (unsigned copy)")
+    record_type = artifact.raw.get("artifact_type")
+    if "hash_input" in artifact.raw and record_type is not None and record_type != artifact_type:
+        errors.append(
+            f"record artifact_type {show(record_type)} but the signed hash_input says "
+            f"{show(artifact_type)}"
+        )
+
     # §4.3 step 3: signature over the stored current_hash.
     signature_valid = False
     if artifact.server_signature is None:
@@ -503,6 +561,8 @@ def _check_order(
     allowed = TYPE_LAYERS.get(transaction_type or "")
     for i, artifact in enumerate(artifacts, start=1):
         kind = artifact.artifact_type
+        if not isinstance(kind, str):
+            continue  # reported per artifact as an unknown artifact_type
         if kind in PRE_SEAL_ORDER:
             index = PRE_SEAL_ORDER.index(kind)
             if sealed_at is not None:
@@ -518,7 +578,7 @@ def _check_order(
             if allowed is not None and kind not in allowed:
                 errors.append(
                     f"artifact {i} ({kind}) is not a layer of transaction type "
-                    f"{transaction_type!r} (§2.2)"
+                    f"{show(transaction_type)} (§2.2)"
                 )
         elif kind in POST_SEAL_TYPES and sealed_at is None:
             errors.append(
@@ -551,7 +611,9 @@ def _check_monotonic(
             continue
         captured = _parse_iso_utc(captured_raw)
         if captured is None:
-            errors.append(f"artifact {i}: captured_at {captured_raw!r} is not ISO 8601 UTC (§2.7)")
+            errors.append(
+                f"artifact {i}: captured_at {show(captured_raw)} is not ISO 8601 UTC (§2.7)"
+            )
             continue
         if previous_captured is not None and captured < previous_captured:
             errors.append(
@@ -566,7 +628,7 @@ def _check_cart_and_amount(
     if cart is None:
         return
     payload = cart.payload
-    money = {k: payload.get(k) for k in CART_MONEY_FIELDS}
+    money: dict[str, Any] = {k: payload.get(k) for k in CART_MONEY_FIELDS}
     bad = [k for k, v in money.items() if not _is_int(v)]
     if bad:
         errors.append(f"cart fields {bad} are not integer minor units (§3.5)")
@@ -596,20 +658,60 @@ def _check_cart_and_amount(
         errors.append("authorization.currency != cart.currency (§3.6 MUST-1 amount match)")
 
 
+def _check_address_match(
+    artifacts: list[ArtifactRecord], cart: ArtifactRecord | None, errors: list[str]
+) -> None:
+    """§3.7: delivery_address_match MUST equal (delivery_address_hash == shipping_address_hash).
+
+    §3.7 calls the boolean unforgeable "without breaking the hash chain upstream". That holds
+    only if a verifier recomputes it: the merchant computes and signs the boolean, so a signed
+    `true` beside two different hashes breaks no link. It is recomputed here.
+    """
+    if cart is None:
+        return
+    shipping = cart.payload.get("shipping_address_hash")
+    for position, artifact in enumerate(artifacts, start=1):
+        if artifact.artifact_type != "fulfillment":
+            continue
+        payload = artifact.payload
+        if "delivery_address_match" not in payload:
+            continue
+        claimed = payload["delivery_address_match"]
+        delivered_to = payload.get("delivery_address_hash")
+        if not (isinstance(delivered_to, str) and isinstance(shipping, str)):
+            # Only an explicit true claims a comparison; upstream #65 makes these nullable for
+            # fulfillment that never ships.
+            if claimed is True:
+                errors.append(
+                    f"artifact {position}: fulfillment.delivery_address_match={show(claimed)} but "
+                    "an address hash it compares is missing (§3.5, §3.7)"
+                )
+            continue
+        expected = delivered_to == shipping
+        if claimed is not expected:
+            errors.append(
+                f"artifact {position}: fulfillment.delivery_address_match={show(claimed)} but "
+                f"delivery_address_hash {'==' if expected else '!='} cart.shipping_address_hash "
+                "(§3.7 MUST)"
+            )
+
+
 def _check_merchant(
     artifacts: list[ArtifactRecord], expected_merchant_id: str | None, errors: list[str]
 ) -> None:
-    seen = {a.metadata["merchant_id"] for a in artifacts if "merchant_id" in a.metadata}
+    values = [a.metadata["merchant_id"] for a in artifacts if "merchant_id" in a.metadata]
+    if any(not isinstance(v, str) for v in values):
+        errors.append("metadata.merchant_id must be a string (§2.7)")
+    seen = {v for v in values if isinstance(v, str)}
     if len(seen) > 1:
-        errors.append(
-            f"artifacts disagree on metadata.merchant_id: {sorted(map(str, seen))} (§2.7)"
-        )
+        errors.append(f"artifacts disagree on metadata.merchant_id: {show(sorted(seen))} (§2.7)")
     if expected_merchant_id is not None:
-        unknown = sorted(str(m) for m in seen if m != expected_merchant_id)
+        unknown = sorted(m for m in seen if m != expected_merchant_id)
         if unknown:
             errors.append(
-                f"bundle references merchant_id {unknown} which the verifier does not recognize "
-                f"(expected {expected_merchant_id!r}); MUST be rejected (§2.7)"
+                f"bundle references merchant_id {show(unknown)} which the verifier does not "
+                "recognize "
+                f"(expected {show(expected_merchant_id)}); MUST be rejected (§2.7)"
             )
 
 
@@ -733,7 +835,7 @@ def verify_chain(
     resolved = _resolve_spec_version(artifacts, spec_version, errors)
     if resolved is not None and resolved not in SUPPORTED_SPEC_VERSIONS:
         return _refused(
-            f"unsupported spec_version {resolved!r}; this verifier supports "
+            f"unsupported spec_version {show(resolved)}; this verifier supports "
             f"{sorted(SUPPORTED_SPEC_VERSIONS)} and MUST refuse (§0.1, §2.7)",
             resolved,
             verified_at,
@@ -741,7 +843,7 @@ def verify_chain(
         )
 
     if transaction_type is not None and transaction_type not in TRANSACTION_TYPES:
-        errors.append(f"unknown transaction_type {transaction_type!r} (§2.2)")
+        errors.append(f"unknown transaction_type {show(transaction_type)} (§2.2)")
         transaction_type = None
 
     checks: list[ArtifactCheck] = []
@@ -754,13 +856,15 @@ def verify_chain(
     _check_monotonic(artifacts, errors, warnings)
     _check_merchant(artifacts, expected_merchant_id, errors)
 
-    by_type = {}
+    by_type: dict[str, ArtifactRecord] = {}
     for artifact in artifacts:
-        by_type.setdefault(artifact.artifact_type, artifact)
+        if isinstance(artifact.artifact_type, str):
+            by_type.setdefault(artifact.artifact_type, artifact)
     cart = by_type.get("cart")
     authorization = by_type.get("authorization")
     delegation = by_type.get("delegation")
     _check_cart_and_amount(cart, authorization, errors)
+    _check_address_match(artifacts, cart, errors)
 
     # §2.5 seal.
     seal_valid: bool | None = None
@@ -798,7 +902,8 @@ def verify_chain(
         alternative = expected_count_by_presence(transaction_type, delegation is not None)
         if alternative != expected:
             warnings.append(
-                f"Appendix B expectedArtifactCount({transaction_type!r}, protocol={protocol!r}) "
+                f"Appendix B expectedArtifactCount({show(transaction_type)}, "
+                f"protocol={show(protocol)}) "
                 f"= {expected}, but counting by delegation presence (§2.2 prose) gives "
                 f"{alternative}; chain_complete follows Appendix B"
             )

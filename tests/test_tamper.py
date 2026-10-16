@@ -5,6 +5,7 @@ import base64
 
 import pytest
 
+from aep_verify.canonical import canonicalize
 from aep_verify.chain import compute_hash, sign_hash, verify_chain
 
 TT = "ai_referral_agent_session"
@@ -15,6 +16,8 @@ def _verify(artifacts, public_key, **kw):
 
 
 def _resign(art, private_key):
+    """Re-sign as the key holder would, so only the rule under test can fail."""
+    art["canonical_json"] = canonicalize(art["hash_input"]).decode()
     art["current_hash"] = compute_hash(art["hash_input"])
     art["server_signature"] = sign_hash(private_key, art["current_hash"])
 
@@ -215,3 +218,40 @@ def test_post_seal_type_before_seal(artifacts, public_key, mutation):
     artifacts.insert(0 if mutation == "fulfillment_first" else 3, moved)
     result = _verify(artifacts, public_key)
     assert any("post-seal but no authorization precedes it" in e for e in result.errors)
+
+
+def test_signed_address_match_that_contradicts_the_hashes(artifacts, public_key, private_key):
+    """§3.7 says the boolean cannot be forged "without breaking the hash chain upstream". The
+    signer computes it, so a re-signed lie breaks nothing unless the verifier recomputes it."""
+    fulfillment = artifacts[7]["hash_input"]["payload"]
+    assert fulfillment["delivery_address_match"] is True
+    fulfillment["delivery_address_hash"] = "sha256:" + "ab" * 32
+    _resign(artifacts[7], private_key)
+    result = _verify(artifacts, public_key)
+    assert result.hash_chain_intact and result.signatures_valid
+    assert not result.valid
+    assert any(
+        "delivery_address_match=True but delivery_address_hash !=" in e for e in result.errors
+    )
+
+
+def test_unsigned_copies_must_agree_with_the_signed_hash_input(artifacts, public_key):
+    artifacts[5]["canonical_json"] = artifacts[5]["canonical_json"].replace("5500", "550")
+    artifacts[6]["artifact_type"] = "fulfillment"
+    result = _verify(artifacts, public_key)
+    assert result.hash_chain_intact and result.signatures_valid
+    assert any("artifact 6: canonical_json is not the canonical form" in e for e in result.errors)
+    assert any("artifact 7: record artifact_type 'fulfillment'" in e for e in result.errors)
+
+
+@pytest.mark.parametrize("claimed, flagged", [(True, True), (False, False), (None, False)])
+def test_address_match_with_a_missing_hash(artifacts, public_key, private_key, claimed, flagged):
+    """A `true` that compares nothing is a claim, not a computation; `false` is honest."""
+    fulfillment = artifacts[7]["hash_input"]["payload"]
+    del fulfillment["delivery_address_hash"]
+    fulfillment["delivery_address_match"] = claimed
+    _resign(artifacts[7], private_key)
+    result = _verify(artifacts, public_key)
+    hits = [e for e in result.errors if "delivery_address_match" in e]
+    assert len(hits) == (1 if flagged else 0), hits
+    assert all("an address hash it compares is missing" in e for e in hits)

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from .canonical import canonicalize, sha256_of
 from .chain import compute_hash, sign_hash, verify_chain, verify_signature
@@ -19,7 +20,7 @@ class Case:
     detail: str = ""
 
 
-def _load(path: Path):
+def _load(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
 

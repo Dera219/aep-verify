@@ -108,3 +108,18 @@ def test_empty_chain_and_unknown_transaction_type(public_key):
     result = verify_chain(load("b-chain.json")["artifacts"], public_key, transaction_type="bogus")
     assert not result.valid
     assert any("unknown transaction_type" in e for e in result.errors)
+
+
+def test_version_strings_agree():
+    import tomllib
+    from pathlib import Path
+
+    import aep_verify
+    from aep_verify.chain import VERIFIER_ID
+
+    pyproject = Path(__file__).resolve().parent.parent / "pyproject.toml"
+    version = tomllib.loads(pyproject.read_text())["project"]["version"]
+    assert aep_verify.__version__ == version
+    assert VERIFIER_ID == f"aep-verify/{version}"
+    conformance = (pyproject.parent / "CONFORMANCE.md").read_text().splitlines()[0]
+    assert f"aep-verify {version} " in conformance
