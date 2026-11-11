@@ -39,6 +39,8 @@ thing here: see [What a DisputeBundle proves](#what-a-disputebundle-proves).
 | Wrapper cross-checks: `totalValue`, `currency`, `evidenceTier`, envelope list, channel, dates | §6.1 | implemented as an **extension**: §6.1 binds no wrapper field, so a contradiction is refused by this verifier, not by the text |
 | Seal against an independently anchored value (`--anchored-seal`) | §4.3 | the comparison is implemented; verifying the anchor itself (RFC 3161 token, log proof) is the caller's job |
 | Seal and every post-seal artifact against an append-time head log (`--anchored-heads`) | none | **proposal**, not in v1.0.3-rc.2: the mechanism draft Issue I suggests, implemented so its effect can be measured |
+| Tail coverage against signed post-seal head records from an independent holder (`aep_verify.tail`) | proposed §4.3.1 / §5 `tail_coverage`, upstream #104 | **prototype**, not in v1.0.3-rc.2: `covered`, `short`, `beyond_record`, `no_record`, `mismatch`, written to the wording discussed in #104 |
+| `transaction_type` bound in the hashed metadata (`ChainBuilder(bind_transaction_type=True)`) | proposed §2.7 field, upstream #102 | **prototype**, not in v1.0.3-rc.2: a bound type decides `chain_complete`; a differing bundle type or a contradicting layer fails; an unbound chain gets the list of types that fit |
 | Hostile input: wrong JSON types, 10,000-deep nesting, multi-megabyte strings | n/a | refused, never crashed: 24,000 fuzzed bundles and events, nesting capped at 128 levels, every echoed value bounded |
 | Protocol envelope verification (TAP, AP2 signatures, x402, Mastercard VI, KYA, Web Bot Auth, ...) | §3.9.11 rules 1-3, 5-12 | **not implemented**: needs live/witnessed keys and reference envelopes; no vectors published |
 | Evidence tier above D | §3.9.12 | not computed when any sub-wrapper is present (depends on the above) |
@@ -79,6 +81,9 @@ aep-verify canon artifact.json
 
 # produce, export and attack a worked dispute; writes REPORT.md and every bundle
 aep-verify demo --out aep-demo
+
+# prototype vectors for upstream #104 (tail coverage) and #102 (bound type)
+aep-verify proposals --out aep-demo/proposals
 ```
 
 Exit status 0 means every check passed (or the bundle is exportable), 1 means a
@@ -187,17 +192,17 @@ and is itself a test (`tests/test_demo.py`).
 ## Tests
 
 ```bash
-.venv/bin/python -m pytest -q      # 250 tests
+.venv/bin/python -m pytest -q      # 285 tests
 .venv/bin/ruff check . && .venv/bin/ruff format --check .
 .venv/bin/python -m mypy           # strict
 ```
 
-250 tests: the vectors, the canonicalizer edge cases (control characters,
+285 tests: the vectors, the canonicalizer edge cases (control characters,
 non-BMP key order, NFC collisions, floats, 2**53, lone surrogates, duplicate
 names, nesting depth), a cross-check against stock RFC 8785, the DisputeBundle
 gate, wrapper cross-checks, anchored seal and head log (39), 30 tamper cases on
 vector (b), 52 producer tests, 43 hostile-input tests including a seeded
-structural fuzz, and the 22-attack demo with every outcome pinned (37). Each
+structural fuzz, the 22-attack demo with every outcome pinned (37), and the #102 / #104 prototypes with their 12 vectors and hostile holder answers (35). Each
 tamper case is a mutation of vector (b) that must be caught: payload edits,
 metadata edits, edit-then-resign, a full rechain against a stored seal,
 deletion, reordering, post-seal insertion, signature bit flips, a signature over

@@ -5,6 +5,7 @@
     aep-verify bundle FILE --key KEY              re-verify a DisputeBundle and apply the §6.2 gate
     aep-verify canon FILE                         print canonical bytes and SHA-256 of a JSON file
     aep-verify demo [--out DIR]                   produce, export and attack a worked dispute
+    aep-verify proposals [--out DIR]              prototype vectors for upstream #102 and #104
 
 Exit status: 0 when everything passed / is valid, 1 when a check failed, 2 on bad input.
 """
@@ -135,6 +136,30 @@ def cmd_bundle(args: argparse.Namespace) -> int:
     return 0 if outcome.exportable else 1
 
 
+def cmd_proposals(args: argparse.Namespace) -> int:
+    from .proposals import write_proposals  # prototypes of upstream #102 / #104, not rc.2
+
+    out = Path(args.out)
+    if out.exists() and not out.is_dir():
+        raise SystemExit(f"not a directory: {out}")
+    try:
+        tails, types = write_proposals(out)
+    except OSError as exc:
+        raise SystemExit(f"cannot write {out}: {exc}") from exc
+    print("#104 tail_coverage (key + head holder):")
+    for t in tails:
+        mark = "" if t.as_expected else "   <-- NOT AS EXPECTED"
+        print(f"  {t.name:24} expected {t.expected_status:13} got {t.observed['status']}{mark}")
+    print("#102 bound transaction_type:")
+    for v in types:
+        mark = "" if v.as_expected else "   <-- NOT AS EXPECTED"
+        got = "valid" if v.observed["valid"] else "fails"
+        want = "valid" if v.expect_valid else "fails"
+        print(f"  {v.name:32} expected {want:6} got {got}{mark}")
+    ok = all(t.as_expected for t in tails) and all(v.as_expected for v in types)
+    return 0 if ok else 1
+
+
 def cmd_demo(args: argparse.Namespace) -> int:
     from .demo import write_demo  # imported here: the verifier commands never need it
 
@@ -240,6 +265,14 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("demo", help="produce, export and attack a worked dispute; write REPORT.md")
     p.add_argument("--out", default="aep-demo", help="output directory (default: ./aep-demo)")
     p.set_defaults(func=cmd_demo)
+
+    p = sub.add_parser(
+        "proposals", help="prototype vectors for upstream #102 (bound type) and #104 (tail)"
+    )
+    p.add_argument(
+        "--out", default="aep-demo/proposals", help="output directory (default: aep-demo/proposals)"
+    )
+    p.set_defaults(func=cmd_proposals)
     return parser
 
 

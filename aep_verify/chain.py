@@ -128,6 +128,10 @@ SUB_WRAPPERS: tuple[tuple[str, str], ...] = (
 
 CART_MONEY_FIELDS: tuple[str, ...] = ("subtotal", "shipping", "tax", "discounts", "total")
 
+# Proposed in upstream #102, not in v1.0.3-rc.2: the transaction type carried in the hashed
+# metadata next to the §2.7 chain-level fields, with the same value on every artifact.
+BOUND_TYPE_FIELD = "transaction_type"
+
 HASH_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 TIMESTAMP_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 
@@ -355,6 +359,7 @@ class VerificationResult:
     protocol: str | None = None
     sealed_bundle_hash: str | None = None
     seal_valid: bool | None = None
+    type_binding: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -378,6 +383,7 @@ class VerificationResult:
                 "protocol": self.protocol,
                 "sealed_bundle_hash": self.sealed_bundle_hash,
                 "seal_valid": self.seal_valid,
+                "type_binding": (None if self.type_binding is None else dict(self.type_binding)),
                 "artifacts": [c.to_dict() for c in self.artifact_checks],
             },
         }
@@ -805,6 +811,65 @@ def _ap2_binding(
     return True
 
 
+def _bound_transaction_type(artifacts: list[ArtifactRecord], errors: list[str]) -> str | None:
+    """The transaction type bound in the hashed metadata (proposed #102), or None if unbound.
+
+    Bound means: present on every artifact with one known value. Present on some artifacts
+    only, conflicting, or unknown is an error, and the chain is then treated as unbound.
+    """
+    carriers = [a for a in artifacts if BOUND_TYPE_FIELD in a.metadata]
+    if not carriers:
+        return None
+    if len(carriers) != len(artifacts):
+        errors.append(
+            f"metadata.{BOUND_TYPE_FIELD} is on {len(carriers)} of {len(artifacts)} artifacts; "
+            "a bound type must be carried on every artifact (proposed #102)"
+        )
+        return None
+    values = {
+        v if isinstance(v, str) else show(v)
+        for v in (a.metadata[BOUND_TYPE_FIELD] for a in carriers)
+    }
+    if len(values) > 1:
+        errors.append(
+            f"conflicting metadata.{BOUND_TYPE_FIELD} values {show(sorted(values))} across the "
+            "chain (proposed #102)"
+        )
+        return None
+    value = values.pop()
+    if value not in TRANSACTION_TYPES:
+        errors.append(f"unknown bound metadata.{BOUND_TYPE_FIELD} {show(value)} (§2.2)")
+        return None
+    return value
+
+
+def type_candidates(artifacts: list[ArtifactRecord], protocol: str | None) -> list[dict[str, Any]]:
+    """Every transaction type whose §2.2 layers fit the chain, with its expected count.
+
+    What a verifier can say about an unbound chain: the layers narrow the type but may not
+    decide it, and each remaining type gives its own chain_complete.
+    """
+    present = {
+        a.artifact_type
+        for a in artifacts
+        if isinstance(a.artifact_type, str) and a.artifact_type in PRE_SEAL_ORDER
+    }
+    counted = sum(1 for a in artifacts if a.artifact_type != "refund")
+    out: list[dict[str, Any]] = []
+    for name in TRANSACTION_TYPES:
+        if not present <= TYPE_LAYERS[name]:
+            continue
+        expected = expected_artifact_count(name, protocol or "GENERIC")
+        out.append(
+            {
+                "transaction_type": name,
+                "expected_artifact_count": expected,
+                "chain_complete": counted == expected,
+            }
+        )
+    return out
+
+
 def verify_chain(
     records: list[Any],
     public_key: Ed25519PublicKey,
@@ -845,6 +910,18 @@ def verify_chain(
     if transaction_type is not None and transaction_type not in TRANSACTION_TYPES:
         errors.append(f"unknown transaction_type {show(transaction_type)} (§2.2)")
         transaction_type = None
+
+    # Proposed #102: a type bound in the hashed metadata decides, and a supplied (bundle)
+    # type that differs from it is an error rather than an override.
+    supplied_type = transaction_type
+    bound_type = _bound_transaction_type(artifacts, errors)
+    if bound_type is not None:
+        if supplied_type is not None and supplied_type != bound_type:
+            errors.append(
+                f"supplied transaction_type {show(supplied_type)} differs from the type bound "
+                f"in the hashed metadata, {show(bound_type)} (proposed #102)"
+            )
+        transaction_type = bound_type
 
     checks: list[ArtifactCheck] = []
     previous_hash: str | None = None
@@ -910,6 +987,14 @@ def verify_chain(
     else:
         warnings.append("transaction_type not supplied; chain_complete cannot be computed (§2.2)")
 
+    type_binding: dict[str, Any] = {
+        "bound": bound_type,
+        "supplied": supplied_type,
+        "used": transaction_type,
+        "source": "metadata" if bound_type else ("supplied" if transaction_type else None),
+        "candidates": None if bound_type else type_candidates(artifacts, protocol),
+    }
+
     hash_chain_intact = all(c.link_valid for c in checks)
     all_hashes = all(c.hash_matches for c in checks)
     signatures_valid = all(c.signature_valid for c in checks)
@@ -937,4 +1022,5 @@ def verify_chain(
         protocol=protocol,
         sealed_bundle_hash=derived_seal,
         seal_valid=seal_valid,
+        type_binding=type_binding,
     )

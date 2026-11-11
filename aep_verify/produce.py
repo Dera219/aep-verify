@@ -34,6 +34,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey,
 from .canonical import CanonicalizationError, canonicalize
 from .chain import (
     ARTIFACT_TYPES,
+    BOUND_TYPE_FIELD,
     INTERACTION_CHANNELS,
     PERMITTED_ACTORS,
     POST_SEAL_TYPES,
@@ -527,6 +528,9 @@ class ChainBuilder:
     signing_key: Ed25519PrivateKey = field(repr=False)
     spec_version: str = SPEC_VERSION
     sdk_version: str = VERIFIER_ID
+    # Proposed upstream #102, not in v1.0.3-rc.2: carry transaction_type in every artifact's
+    # hashed metadata so the chain, not the export wrapper, decides chain_complete.
+    bind_transaction_type: bool = False
     _records: list[dict[str, Any]] = field(default_factory=list, init=False, repr=False)
     _keys: dict[str, int] = field(default_factory=dict, init=False, repr=False)
 
@@ -569,7 +573,7 @@ class ChainBuilder:
         return [r["hash_input"]["payload"] for r in self._records if r["artifact_type"] == kind]
 
     def metadata(self) -> dict[str, Any]:
-        return {
+        meta: dict[str, Any] = {
             "chain_id": self.chain_id,
             "merchant_id": self.merchant_id,
             "session_id_hash": self.session_id_hash,
@@ -578,6 +582,9 @@ class ChainBuilder:
             "sdk_version": self.sdk_version,
             "signing_key_id": signing_key_id(self.public_key),
         }
+        if self.bind_transaction_type:
+            meta[BOUND_TYPE_FIELD] = self.transaction_type
+        return meta
 
     # -- append --------------------------------------------------------------------------------
 

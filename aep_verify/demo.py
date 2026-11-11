@@ -91,18 +91,25 @@ def _fallback_key(artifact_type: str, actor_id: str, ts: str) -> str:
     return idempotency_fallback(TRANSACTION_ID, artifact_type, actor_id, ts)
 
 
-def _sealed_prefix(*, discovery: bool = True) -> ChainBuilder:
+def _sealed_prefix(
+    *,
+    discovery: bool = True,
+    transaction_type: str = TRANSACTION_TYPE,
+    bind_transaction_type: bool = False,
+) -> ChainBuilder:
     """Discovery through authorization: everything the §2.5 seal commits to.
 
     §3.1: only the AI platform can emit discovery, so it "is absent from most chains". The
-    `unattributed` variant omits it, as most real referral chains will.
+    `unattributed` variant omits it, as most real referral chains will. The type arguments
+    exist for the upstream #102 vectors; the demo itself uses the defaults.
     """
     b = ChainBuilder(
-        transaction_type=TRANSACTION_TYPE,
+        transaction_type=transaction_type,
         chain_id=CHAIN_ID,
         merchant_id=MERCHANT_ID,
         session_id_hash=_ref("session:demo-7f3a"),
         signing_key=MERCHANT_KEY,
+        bind_transaction_type=bind_transaction_type,
     )
     if discovery:
         b.append(
