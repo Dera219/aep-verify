@@ -223,6 +223,21 @@ def _emit(payload: dict[str, Any], as_json: bool, errors: list[str], warnings: l
         print(f"  warning: {line}")
 
 
+def cmd_upstream_vectors(args: argparse.Namespace) -> int:
+    from .upstream_vectors import format_report, run  # requested upstream #98 / #101, not rc.2
+
+    out = Path(args.out)
+    if out.exists() and not out.is_dir():
+        raise SystemExit(f"not a directory: {out}")
+    try:
+        results = run(out)
+    except OSError as exc:
+        raise SystemExit(f"cannot write {out}: {exc}") from exc
+    print(format_report(results))
+    ok = all(r["match"] for r in results["layer"]) and all(r["match"] for r in results["ingestion"])
+    return 0 if ok else 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="aep-verify", description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
@@ -273,6 +288,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--out", default="aep-demo/proposals", help="output directory (default: aep-demo/proposals)"
     )
     p.set_defaults(func=cmd_proposals)
+
+    p = sub.add_parser(
+        "upstream-vectors",
+        help="vectors requested upstream for #98 (layer presence) and #101 (ingestion gate)",
+    )
+    p.add_argument(
+        "--out", default="vectors/proposals", help="output directory (default: vectors/proposals)"
+    )
+    p.set_defaults(func=cmd_upstream_vectors)
     return parser
 
 

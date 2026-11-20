@@ -1,0 +1,136 @@
+{
+  "layer": [
+    {
+      "vector": "98-direct-web-repeat-fulfillment",
+      "artifacts": [
+        "intent",
+        "policy",
+        "cart",
+        "authorization",
+        "fulfillment",
+        "fulfillment"
+      ],
+      "expected": {
+        "valid": true,
+        "hash_chain_intact": true,
+        "signatures_valid": true,
+        "chain_complete": true,
+        "artifacts_verified": 6
+      },
+      "layer_rule": {
+        "valid": true,
+        "hash_chain_intact": true,
+        "signatures_valid": true,
+        "chain_complete": true,
+        "artifacts_verified": 6
+      },
+      "missing_layers": [],
+      "rc2_chain_complete": false,
+      "rc2_errors": [],
+      "seal_valid": true,
+      "match": true
+    },
+    {
+      "vector": "98-direct-web-missing-cart",
+      "artifacts": [
+        "intent",
+        "policy",
+        "authorization",
+        "fulfillment",
+        "fulfillment"
+      ],
+      "expected": {
+        "valid": true,
+        "hash_chain_intact": true,
+        "signatures_valid": true,
+        "chain_complete": false,
+        "artifacts_verified": 5
+      },
+      "layer_rule": {
+        "valid": true,
+        "hash_chain_intact": true,
+        "signatures_valid": true,
+        "chain_complete": false,
+        "artifacts_verified": 5
+      },
+      "missing_layers": [
+        "cart"
+      ],
+      "rc2_chain_complete": true,
+      "rc2_errors": [],
+      "seal_valid": true,
+      "match": true
+    }
+  ],
+  "ingestion": [
+    {
+      "case": "network-transaction-id-15-digit-luhn",
+      "expected": "accept",
+      "field_gate": "accept",
+      "field_gate_hits": [],
+      "rc2_gate": "reject",
+      "other_schema_problems": [],
+      "match": true
+    },
+    {
+      "case": "payment-method-token-same-digits",
+      "expected": "reject",
+      "field_gate": "reject",
+      "field_gate_hits": [
+        "payment_method_token: '829104567123459'"
+      ],
+      "rc2_gate": "reject",
+      "other_schema_problems": [],
+      "match": true
+    },
+    {
+      "case": "stablecoin-amount-atomic-19-digit-luhn",
+      "expected": "accept",
+      "field_gate": "accept",
+      "field_gate_hits": [],
+      "rc2_gate": "reject",
+      "other_schema_problems": [],
+      "match": true
+    },
+    {
+      "case": "payment-method-token-digits-with-spaces",
+      "expected": "reject",
+      "field_gate": "reject",
+      "field_gate_hits": [
+        "payment_method_token: '8291 0456 7123 459'"
+      ],
+      "rc2_gate": "reject",
+      "other_schema_problems": [],
+      "match": true
+    },
+    {
+      "case": "payment-method-token-digits-with-hyphens",
+      "expected": "reject",
+      "field_gate": "reject",
+      "field_gate_hits": [
+        "payment_method_token: '8291-0456-7123-459'"
+      ],
+      "rc2_gate": "reject",
+      "other_schema_problems": [],
+      "match": true
+    },
+    {
+      "case": "payment-method-token-12-digit-luhn",
+      "expected": "accept",
+      "field_gate": "accept",
+      "field_gate_hits": [],
+      "rc2_gate": "accept",
+      "other_schema_problems": [],
+      "match": true
+    },
+    {
+      "case": "payment-method-token-20-digit-luhn",
+      "expected": "accept",
+      "field_gate": "accept",
+      "field_gate_hits": [],
+      "rc2_gate": "accept",
+      "other_schema_problems": [],
+      "match": true
+    }
+  ]
+}

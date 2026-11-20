@@ -1,0 +1,186 @@
+{
+  "description": "Missing cart: intent, policy, authorization, fulfillment (in_transit), fulfillment (delivered). Five artifacts, but the cart layer is absent and fulfillment repeats, so chain_complete is false under the proposed layer rule. Under rc.2 as written, Appendix B compares the count (5) with 5 and returns true.",
+  "spec_version": "aep-1.0.3-rc.2",
+  "proposal": "upstream #98 layer rule (not in v1.0.3-rc.2); direct_web expected layers per §2.2 until #77 is decided",
+  "transaction_type": "direct_web",
+  "ed25519_public_key_base64": "ebVWLo/mVPlAeLES6KmLp5AfhTrmlb7X4OORC60ElmQ=",
+  "sealed_bundle_hash": "sha256:c798aec1d9c3a2d4f90a6730866f32df88b7d57b32428a388e49ee1adc2104d6",
+  "artifacts": [
+    {
+      "sequence_number": 1,
+      "artifact_type": "intent",
+      "hash_input": {
+        "artifact_type": "intent",
+        "actor_type": "user",
+        "actor_id": "hmac:9f2c1a7e5b3d4c6a8e0f1b2d3c4e5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f",
+        "interaction_channel": null,
+        "payload": {
+          "intent_id": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+          "product_id": "prod_001",
+          "product_name": "Café Grinder — \"Précis\" model",
+          "quantity": 1,
+          "unit_price": 4599,
+          "currency": "USD",
+          "price_displayed_at": "2026-07-01T12:02:00Z",
+          "captured_at": "2026-07-01T12:02:00Z",
+          "idempotency_key": "vec-intent-001"
+        },
+        "metadata": {
+          "merchant_id": "acct_vector_merchant",
+          "spec_version": "aep-1.0.3-rc.2"
+        },
+        "previous_hash": null,
+        "timestamp": "2026-07-01T12:02:00Z"
+      },
+      "canonical_json": "{\"actor_id\":\"hmac:9f2c1a7e5b3d4c6a8e0f1b2d3c4e5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f\",\"actor_type\":\"user\",\"artifact_type\":\"intent\",\"interaction_channel\":null,\"metadata\":{\"merchant_id\":\"acct_vector_merchant\",\"spec_version\":\"aep-1.0.3-rc.2\"},\"payload\":{\"captured_at\":\"2026-07-01T12:02:00Z\",\"currency\":\"USD\",\"idempotency_key\":\"vec-intent-001\",\"intent_id\":\"b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e\",\"price_displayed_at\":\"2026-07-01T12:02:00Z\",\"product_id\":\"prod_001\",\"product_name\":\"Café Grinder — \\\"Précis\\\" model\",\"quantity\":1,\"unit_price\":4599},\"previous_hash\":null,\"timestamp\":\"2026-07-01T12:02:00Z\"}",
+      "current_hash": "sha256:24308df0d2fb78ad6ed5b11830f047219ded274b08b22cb5d1a0ccfd9d02f919",
+      "server_signature": "okGMLkSsv3gyrNVwZZL3K117a/sGLDl2oAx9nkdI122SWd7oxvPC7wT7MQqlwcWIDXpu2N0UgpZnAz9Z4KgQAw=="
+    },
+    {
+      "sequence_number": 2,
+      "artifact_type": "policy",
+      "hash_input": {
+        "artifact_type": "policy",
+        "actor_type": "merchant",
+        "actor_id": "acct_vector_merchant",
+        "interaction_channel": null,
+        "payload": {
+          "decision_id": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
+          "policy_engine_vendor": "a-comm",
+          "policy_version": "default-v1",
+          "outcome": "approved",
+          "escalated": false,
+          "risk_score": 0,
+          "rules_triggered": [],
+          "evaluated_at": "2026-07-01T12:04:00Z",
+          "captured_at": "2026-07-01T12:04:00Z",
+          "idempotency_key": "vec-policy-001"
+        },
+        "metadata": {
+          "merchant_id": "acct_vector_merchant",
+          "spec_version": "aep-1.0.3-rc.2"
+        },
+        "previous_hash": "sha256:24308df0d2fb78ad6ed5b11830f047219ded274b08b22cb5d1a0ccfd9d02f919",
+        "timestamp": "2026-07-01T12:04:00Z"
+      },
+      "canonical_json": "{\"actor_id\":\"acct_vector_merchant\",\"actor_type\":\"merchant\",\"artifact_type\":\"policy\",\"interaction_channel\":null,\"metadata\":{\"merchant_id\":\"acct_vector_merchant\",\"spec_version\":\"aep-1.0.3-rc.2\"},\"payload\":{\"captured_at\":\"2026-07-01T12:04:00Z\",\"decision_id\":\"c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f\",\"escalated\":false,\"evaluated_at\":\"2026-07-01T12:04:00Z\",\"idempotency_key\":\"vec-policy-001\",\"outcome\":\"approved\",\"policy_engine_vendor\":\"a-comm\",\"policy_version\":\"default-v1\",\"risk_score\":0,\"rules_triggered\":[]},\"previous_hash\":\"sha256:24308df0d2fb78ad6ed5b11830f047219ded274b08b22cb5d1a0ccfd9d02f919\",\"timestamp\":\"2026-07-01T12:04:00Z\"}",
+      "current_hash": "sha256:ffdc14298111550142f112829aef207133931e82493624cd49fd70821b8de176",
+      "server_signature": "bTd9BeRWly5fl4T24glyPFMXQnyzThxyFS2Uhv1pJ9fDGk7qbl68BBkzn61nGrAKdOSD6L91cT0u0YzTPFZbBA=="
+    },
+    {
+      "sequence_number": 3,
+      "artifact_type": "authorization",
+      "hash_input": {
+        "artifact_type": "authorization",
+        "actor_type": "psp",
+        "actor_id": "stripe",
+        "interaction_channel": null,
+        "payload": {
+          "psp": "stripe",
+          "payment_intent_id": "pi_vector_001",
+          "charge_id": "ch_vector_001",
+          "payment_method_token": "pm_vector_token_001",
+          "payment_method_type": "card",
+          "result": "approved",
+          "amount": 5500,
+          "currency": "USD",
+          "auth_code": "AUTH01",
+          "authorized_at": "2026-07-01T12:06:00Z",
+          "settlement_rail": "card",
+          "stablecoin": null,
+          "network_transaction_id": "MCC0000000001",
+          "card_brand": "visa",
+          "card_last4": "4242",
+          "card_funding": "credit",
+          "card_country": "US",
+          "avs_result": "Y",
+          "cvv_result": "M",
+          "three_ds_result": "not_applicable",
+          "three_ds_version": null,
+          "fraud_score": null,
+          "fraud_engine": null,
+          "captured_at": "2026-07-01T12:06:00Z",
+          "idempotency_key": "vec-authorization-001"
+        },
+        "metadata": {
+          "merchant_id": "acct_vector_merchant",
+          "spec_version": "aep-1.0.3-rc.2"
+        },
+        "previous_hash": "sha256:ffdc14298111550142f112829aef207133931e82493624cd49fd70821b8de176",
+        "timestamp": "2026-07-01T12:06:00Z"
+      },
+      "canonical_json": "{\"actor_id\":\"stripe\",\"actor_type\":\"psp\",\"artifact_type\":\"authorization\",\"interaction_channel\":null,\"metadata\":{\"merchant_id\":\"acct_vector_merchant\",\"spec_version\":\"aep-1.0.3-rc.2\"},\"payload\":{\"amount\":5500,\"auth_code\":\"AUTH01\",\"authorized_at\":\"2026-07-01T12:06:00Z\",\"avs_result\":\"Y\",\"captured_at\":\"2026-07-01T12:06:00Z\",\"card_brand\":\"visa\",\"card_country\":\"US\",\"card_funding\":\"credit\",\"card_last4\":\"4242\",\"charge_id\":\"ch_vector_001\",\"currency\":\"USD\",\"cvv_result\":\"M\",\"fraud_engine\":null,\"fraud_score\":null,\"idempotency_key\":\"vec-authorization-001\",\"network_transaction_id\":\"MCC0000000001\",\"payment_intent_id\":\"pi_vector_001\",\"payment_method_token\":\"pm_vector_token_001\",\"payment_method_type\":\"card\",\"psp\":\"stripe\",\"result\":\"approved\",\"settlement_rail\":\"card\",\"stablecoin\":null,\"three_ds_result\":\"not_applicable\",\"three_ds_version\":null},\"previous_hash\":\"sha256:ffdc14298111550142f112829aef207133931e82493624cd49fd70821b8de176\",\"timestamp\":\"2026-07-01T12:06:00Z\"}",
+      "current_hash": "sha256:c798aec1d9c3a2d4f90a6730866f32df88b7d57b32428a388e49ee1adc2104d6",
+      "server_signature": "06riU4vs6YcuXHZFBBQK9mJDIlfvfKhWaLTUnsK13P3/DzbyuP9zQjoYMuMGv+MCpzEHs6xKT5vedm6qK50eAg=="
+    },
+    {
+      "sequence_number": 4,
+      "artifact_type": "fulfillment",
+      "hash_input": {
+        "artifact_type": "fulfillment",
+        "actor_type": "fulfillment_provider",
+        "actor_id": "ups",
+        "interaction_channel": null,
+        "payload": {
+          "fulfillment_id": "e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8a9b",
+          "carrier": "UPS",
+          "tracking_number": "1Zvector001",
+          "status": "in_transit",
+          "shipped_at": "2026-07-01T12:30:00Z",
+          "delivered_at": null,
+          "delivery_address_hash": "sha256:3b6c8d0e2f4a6b8c0d2e4f6a8b0c2d4e6f8a0b2c4d6e8f0a2b4c6d8e0f2a4b6c",
+          "delivery_address_match": true,
+          "captured_at": "2026-07-01T12:31:00Z",
+          "idempotency_key": "vec-fulfillment-in-transit-001"
+        },
+        "metadata": {
+          "merchant_id": "acct_vector_merchant",
+          "spec_version": "aep-1.0.3-rc.2"
+        },
+        "previous_hash": "sha256:c798aec1d9c3a2d4f90a6730866f32df88b7d57b32428a388e49ee1adc2104d6",
+        "timestamp": "2026-07-01T12:31:00Z"
+      },
+      "canonical_json": "{\"actor_id\":\"ups\",\"actor_type\":\"fulfillment_provider\",\"artifact_type\":\"fulfillment\",\"interaction_channel\":null,\"metadata\":{\"merchant_id\":\"acct_vector_merchant\",\"spec_version\":\"aep-1.0.3-rc.2\"},\"payload\":{\"captured_at\":\"2026-07-01T12:31:00Z\",\"carrier\":\"UPS\",\"delivered_at\":null,\"delivery_address_hash\":\"sha256:3b6c8d0e2f4a6b8c0d2e4f6a8b0c2d4e6f8a0b2c4d6e8f0a2b4c6d8e0f2a4b6c\",\"delivery_address_match\":true,\"fulfillment_id\":\"e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8a9b\",\"idempotency_key\":\"vec-fulfillment-in-transit-001\",\"shipped_at\":\"2026-07-01T12:30:00Z\",\"status\":\"in_transit\",\"tracking_number\":\"1Zvector001\"},\"previous_hash\":\"sha256:c798aec1d9c3a2d4f90a6730866f32df88b7d57b32428a388e49ee1adc2104d6\",\"timestamp\":\"2026-07-01T12:31:00Z\"}",
+      "current_hash": "sha256:e40a7a3ccbd5adb39b882806f455d7e68faa7e06deec61fbc8654515e65f38ed",
+      "server_signature": "f1oiZ1+owoMTxbQQmLx7IFxmeEUAPWWO3BaeayjPjgxczjwHIucrzrOTiFDNyCwt2wZnHcbkAKZzgCdn59PNBA=="
+    },
+    {
+      "sequence_number": 5,
+      "artifact_type": "fulfillment",
+      "hash_input": {
+        "artifact_type": "fulfillment",
+        "actor_type": "fulfillment_provider",
+        "actor_id": "ups",
+        "interaction_channel": null,
+        "payload": {
+          "fulfillment_id": "e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8a9b",
+          "carrier": "UPS",
+          "tracking_number": "1Zvector001",
+          "status": "delivered",
+          "shipped_at": "2026-07-01T12:30:00Z",
+          "delivered_at": "2026-07-01T12:45:00Z",
+          "delivery_address_hash": "sha256:3b6c8d0e2f4a6b8c0d2e4f6a8b0c2d4e6f8a0b2c4d6e8f0a2b4c6d8e0f2a4b6c",
+          "delivery_address_match": true,
+          "captured_at": "2026-07-01T12:46:00Z",
+          "idempotency_key": "vec-fulfillment-delivered-001"
+        },
+        "metadata": {
+          "merchant_id": "acct_vector_merchant",
+          "spec_version": "aep-1.0.3-rc.2"
+        },
+        "previous_hash": "sha256:e40a7a3ccbd5adb39b882806f455d7e68faa7e06deec61fbc8654515e65f38ed",
+        "timestamp": "2026-07-01T12:46:00Z"
+      },
+      "canonical_json": "{\"actor_id\":\"ups\",\"actor_type\":\"fulfillment_provider\",\"artifact_type\":\"fulfillment\",\"interaction_channel\":null,\"metadata\":{\"merchant_id\":\"acct_vector_merchant\",\"spec_version\":\"aep-1.0.3-rc.2\"},\"payload\":{\"captured_at\":\"2026-07-01T12:46:00Z\",\"carrier\":\"UPS\",\"delivered_at\":\"2026-07-01T12:45:00Z\",\"delivery_address_hash\":\"sha256:3b6c8d0e2f4a6b8c0d2e4f6a8b0c2d4e6f8a0b2c4d6e8f0a2b4c6d8e0f2a4b6c\",\"delivery_address_match\":true,\"fulfillment_id\":\"e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8a9b\",\"idempotency_key\":\"vec-fulfillment-delivered-001\",\"shipped_at\":\"2026-07-01T12:30:00Z\",\"status\":\"delivered\",\"tracking_number\":\"1Zvector001\"},\"previous_hash\":\"sha256:e40a7a3ccbd5adb39b882806f455d7e68faa7e06deec61fbc8654515e65f38ed\",\"timestamp\":\"2026-07-01T12:46:00Z\"}",
+      "current_hash": "sha256:1deb2cf5b5df817ff1e72ff85be9cdc1ca446e0eb685a4acfd41bed4eab363de",
+      "server_signature": "jfYAUK0ZNIf7DU2g+afqulA++qNStYgTb0aDOf5YGqr3nmDYRL+andlhpzYwklFh1iOOZ1COqK/7l4iwvJzIAA=="
+    }
+  ],
+  "expected_verification": {
+    "valid": true,
+    "hash_chain_intact": true,
+    "signatures_valid": true,
+    "chain_complete": false,
+    "artifacts_verified": 5
+  }
+}
